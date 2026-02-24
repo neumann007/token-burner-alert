@@ -1,31 +1,12 @@
 {
-  "name": "token-burner-alert",
-  "displayName": "token-burner-alert",
-  "description": "VS Code extension that warns about bloated LLM context via real-time token counting.",
-  "version": "0.0.1",
-  "license": "ISC",
-  "type": "commonjs",
-  "main": "./dist/extension.js",
-  "engines": {
-    "vscode": "^1.90.0"
-  },
-  "activationEvents": [
-    "*"
-  ],
-  "categories": [
-    "Other"
+  "name": "token-burner-alert-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/*"
   ],
   "scripts": {
-    "build": "tsc -p .",
-    "watch": "tsc -w -p .",
-    "clean": "if exist dist rmdir /s /q dist"
-  },
-  "dependencies": {
-    "js-tiktoken": "^1.0.21"
-  },
-  "devDependencies": {
-    "@types/node": "^25.3.0",
-    "@types/vscode": "^1.109.0",
-    "typescript": "^5.9.3"
+    "build": "npm run --workspace token-burner-alert build",
+    "watch": "npm run --workspace token-burner-alert watch"
   }
 }
