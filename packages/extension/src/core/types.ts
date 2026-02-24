@@ -12,6 +12,7 @@ export interface TokenizeResultMessage {
   readonly type: typeof TOKENIZE_RESULT_TYPE;
   readonly requestId: string;
   readonly tokenCount: number;
+  readonly isReconciled: boolean;
 }
 
 export interface TokenizeErrorMessage {
@@ -56,7 +57,10 @@ export function isWorkerResponseMessage(
   }
 
   if (value.type === TOKENIZE_RESULT_TYPE) {
-    return typeof value.tokenCount === "number";
+    return (
+      typeof value.tokenCount === "number" &&
+      typeof value.isReconciled === "boolean"
+    );
   }
 
   if (value.type === TOKENIZE_ERROR_TYPE) {

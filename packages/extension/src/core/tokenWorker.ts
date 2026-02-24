@@ -28,6 +28,7 @@ port.on("message", (message: unknown) => {
       type: TOKENIZE_RESULT_TYPE,
       requestId: message.requestId,
       tokenCount,
+      isReconciled: true,
     };
 
     port.postMessage(response);
