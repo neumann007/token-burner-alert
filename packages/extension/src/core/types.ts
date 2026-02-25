@@ -6,6 +6,7 @@ export interface TokenizeRequestMessage {
   readonly type: typeof TOKENIZE_REQUEST_TYPE;
   readonly requestId: string;
   readonly text: string;
+  readonly isReconcileRequest: boolean;
 }
 
 export interface TokenizeResultMessage {
@@ -13,6 +14,7 @@ export interface TokenizeResultMessage {
   readonly requestId: string;
   readonly tokenCount: number;
   readonly isReconciled: boolean;
+  readonly isEstimate: boolean;
 }
 
 export interface TokenizeErrorMessage {
@@ -35,6 +37,13 @@ function hasStringField(
   return typeof value[key] === "string";
 }
 
+function hasBooleanField(
+  value: Record<string, unknown>,
+  key: string,
+): value is Record<string, boolean> {
+  return typeof value[key] === "boolean";
+}
+
 export function isWorkerRequestMessage(
   value: unknown,
 ): value is WorkerRequestMessage {
@@ -45,7 +54,8 @@ export function isWorkerRequestMessage(
   return (
     value.type === TOKENIZE_REQUEST_TYPE &&
     hasStringField(value, "requestId") &&
-    hasStringField(value, "text")
+    hasStringField(value, "text") &&
+    hasBooleanField(value, "isReconcileRequest")
   );
 }
 
@@ -59,7 +69,8 @@ export function isWorkerResponseMessage(
   if (value.type === TOKENIZE_RESULT_TYPE) {
     return (
       typeof value.tokenCount === "number" &&
-      typeof value.isReconciled === "boolean"
+      typeof value.isReconciled === "boolean" &&
+      typeof value.isEstimate === "boolean"
     );
   }
 

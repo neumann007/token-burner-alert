@@ -43,7 +43,14 @@ export class TokenEngine {
     });
   }
 
-  public calculateTokens(text: string): Promise<number> {
+  public getFastEstimate(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  public calculateTokens(
+    text: string,
+    isReconcileRequest: boolean = false,
+  ): Promise<number> {
     if (this.isDisposed) {
       return Promise.reject(new Error("TokenEngine is disposed."));
     }
@@ -53,6 +60,7 @@ export class TokenEngine {
       type: TOKENIZE_REQUEST_TYPE,
       requestId,
       text,
+      isReconcileRequest,
     };
 
     return new Promise<number>((resolve, reject) => {
