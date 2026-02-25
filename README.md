@@ -9,19 +9,19 @@ The Analytics Brain (backend): A Django/PostgreSQL SaaS backend that ingests pri
 
 Shared Contracts (packages/shared): Strict data interfaces bridging the extension and the backend.
 
-🗺️ Project Roadmap
-Phase 1: Local MVP (Core Engine & UX) - [In Progress]
+## 🗺️ Project Roadmap
+Phase 1: Local MVP (Core Engine & UX) - [Completed]
 [x] Initialize Monorepo and Git branching strategy.
 
 [x] Build WASM WebWorker (js-tiktoken) for non-blocking token counting.
 
-[ ] Wire WebWorker to VS Code typing events with debounce.
+[x] Wire WebWorker to VS Code typing events with debounce.
 
-[ ] Build Status Bar UI (Safe/Warning/Critical thresholds).
+[x] Build Status Bar UI (Safe/Warning/Critical thresholds).
 
-[ ] Implement Scrollbar Heatmap (Overview Ruler) for token-heavy functions.
+[x] Implement Scrollbar Heatmap (Overview Ruler) for token-heavy lines.
 
-Phase 2: Context Management (.tokenignore) - [Planned]
+Phase 2: Context Management (.tokenignore) - [In Progress]
 [ ] Parse .tokenignore files using glob matching.
 
 [ ] Implement inline block exclusions (// tokenignore:begin).
