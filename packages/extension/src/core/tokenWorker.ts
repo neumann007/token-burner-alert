@@ -2,6 +2,7 @@ import { getEncoding } from "js-tiktoken";
 import { parentPort } from "node:worker_threads";
 
 import {
+  type HeavyRange,
   TOKENIZE_ERROR_TYPE,
   TOKENIZE_REQUEST_TYPE,
   TOKENIZE_RESULT_TYPE,
@@ -11,6 +12,8 @@ import {
 
 const FULL_RECONCILE_CHAR_THRESHOLD = 50_000;
 const CHUNK_LINE_SIZE = 500;
+const WARNING_TOKENS_THRESHOLD = 150;
+const CRITICAL_TOKENS_THRESHOLD = 400;
 
 function hashDjb2(input: string): number {
   let hash = 5381;
@@ -33,6 +36,43 @@ function splitIntoLineChunks(text: string, linesPerChunk: number): string[] {
   return chunks;
 }
 
+function scanHeavyRanges(text: string): HeavyRange[] {
+  const lines = text.split("\n");
+  const heavyRanges: HeavyRange[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const lineText = lines[index].trim();
+
+    // Skip empty lines to avoid unnecessary tokenization work.
+    if (lineText.length === 0) {
+      continue;
+    }
+
+    const lineTokens = encoder.encode(lineText).length;
+
+    if (lineTokens >= CRITICAL_TOKENS_THRESHOLD) {
+      heavyRanges.push({
+        startLine: index,
+        endLine: index,
+        tokens: lineTokens,
+        severity: "critical",
+      });
+      continue;
+    }
+
+    if (lineTokens >= WARNING_TOKENS_THRESHOLD) {
+      heavyRanges.push({
+        startLine: index,
+        endLine: index,
+        tokens: lineTokens,
+        severity: "warning",
+      });
+    }
+  }
+
+  return heavyRanges;
+}
+
 const encoder = getEncoding("cl100k_base");
 const chunkCache = new Map<number, number>();
 
@@ -50,6 +90,7 @@ port.on("message", (message: unknown) => {
   try {
     let tokenCount = 0;
     let isReconciled = false;
+    let topHeavyRanges: HeavyRange[] | undefined;
 
     if (
       message.isReconcileRequest ||
@@ -58,6 +99,10 @@ port.on("message", (message: unknown) => {
       tokenCount = encoder.encode(message.text).length;
       isReconciled = true;
       chunkCache.clear();
+
+      if (message.isReconcileRequest) {
+        topHeavyRanges = scanHeavyRanges(message.text);
+      }
     } else {
       const chunks = splitIntoLineChunks(message.text, CHUNK_LINE_SIZE);
 
@@ -82,6 +127,7 @@ port.on("message", (message: unknown) => {
       tokenCount,
       isReconciled,
       isEstimate: false,
+      topHeavyRanges,
     };
 
     port.postMessage(response);
