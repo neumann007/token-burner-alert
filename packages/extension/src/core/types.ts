@@ -2,6 +2,13 @@ export const TOKENIZE_REQUEST_TYPE = "tokenize" as const;
 export const TOKENIZE_RESULT_TYPE = "tokenize:result" as const;
 export const TOKENIZE_ERROR_TYPE = "tokenize:error" as const;
 
+export interface HeavyRange {
+  startLine: number;
+  endLine: number;
+  tokens: number;
+  severity: "warning" | "critical";
+}
+
 export interface TokenizeRequestMessage {
   readonly type: typeof TOKENIZE_REQUEST_TYPE;
   readonly requestId: string;
@@ -15,6 +22,7 @@ export interface TokenizeResultMessage {
   readonly tokenCount: number;
   readonly isReconciled: boolean;
   readonly isEstimate: boolean;
+  readonly topHeavyRanges?: HeavyRange[];
 }
 
 export interface TokenizeErrorMessage {
@@ -44,6 +52,19 @@ function hasBooleanField(
   return typeof value[key] === "boolean";
 }
 
+function isHeavyRange(value: unknown): value is HeavyRange {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.startLine === "number" &&
+    typeof value.endLine === "number" &&
+    typeof value.tokens === "number" &&
+    (value.severity === "warning" || value.severity === "critical")
+  );
+}
+
 export function isWorkerRequestMessage(
   value: unknown,
 ): value is WorkerRequestMessage {
@@ -67,11 +88,20 @@ export function isWorkerResponseMessage(
   }
 
   if (value.type === TOKENIZE_RESULT_TYPE) {
-    return (
+    const hasRequiredFields =
       typeof value.tokenCount === "number" &&
       typeof value.isReconciled === "boolean" &&
-      typeof value.isEstimate === "boolean"
-    );
+      typeof value.isEstimate === "boolean";
+
+    if (!hasRequiredFields) {
+      return false;
+    }
+
+    if (value.topHeavyRanges === undefined) {
+      return true;
+    }
+
+    return Array.isArray(value.topHeavyRanges) && value.topHeavyRanges.every(isHeavyRange);
   }
 
   if (value.type === TOKENIZE_ERROR_TYPE) {

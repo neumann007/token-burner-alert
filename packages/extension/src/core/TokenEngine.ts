@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { Worker } from "node:worker_threads";
 
 import {
+  type HeavyRange,
   TOKENIZE_REQUEST_TYPE,
   TOKENIZE_RESULT_TYPE,
   isWorkerResponseMessage,
@@ -12,7 +13,7 @@ import {
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 interface PendingRequest {
-  readonly resolve: (tokenCount: number) => void;
+  readonly resolve: (result: TokenCalculationResult) => void;
   readonly reject: (error: Error) => void;
   readonly timeoutHandle: NodeJS.Timeout;
 }
@@ -20,6 +21,13 @@ interface PendingRequest {
 export interface TokenEngineOptions {
   readonly requestTimeoutMs?: number;
   readonly workerScriptPath?: string;
+}
+
+export interface TokenCalculationResult {
+  readonly tokenCount: number;
+  readonly isReconciled: boolean;
+  readonly isEstimate: boolean;
+  readonly topHeavyRanges?: HeavyRange[];
 }
 
 export class TokenEngine {
@@ -50,7 +58,7 @@ export class TokenEngine {
   public calculateTokens(
     text: string,
     isReconcileRequest: boolean = false,
-  ): Promise<number> {
+  ): Promise<TokenCalculationResult> {
     if (this.isDisposed) {
       return Promise.reject(new Error("TokenEngine is disposed."));
     }
@@ -63,7 +71,7 @@ export class TokenEngine {
       isReconcileRequest,
     };
 
-    return new Promise<number>((resolve, reject) => {
+    return new Promise<TokenCalculationResult>((resolve, reject) => {
       const timeoutHandle = setTimeout(() => {
         this.pendingRequests.delete(requestId);
         reject(
@@ -113,7 +121,12 @@ export class TokenEngine {
     this.pendingRequests.delete(message.requestId);
 
     if (message.type === TOKENIZE_RESULT_TYPE) {
-      pending.resolve(message.tokenCount);
+      pending.resolve({
+        tokenCount: message.tokenCount,
+        isReconciled: message.isReconciled,
+        isEstimate: message.isEstimate,
+        topHeavyRanges: message.topHeavyRanges,
+      });
       return;
     }
 

@@ -1,10 +1,12 @@
 import * as vscode from "vscode";
 
 import { TokenEngine } from "./core/TokenEngine";
+import { DecorationsManager } from "./ui/DecorationsManager";
 import { StatusBarManager } from "./ui/StatusBarManager";
 
 let tokenEngine: TokenEngine | undefined;
 let statusBarManager: StatusBarManager | undefined;
+let decorationsManager: DecorationsManager | undefined;
 let chunkedUpdateDebounceHandle: NodeJS.Timeout | undefined;
 let reconcileUpdateDebounceHandle: NodeJS.Timeout | undefined;
 let latestUpdateSequence = 0;
@@ -24,9 +26,14 @@ function clearPendingUpdateHandles(): void {
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   tokenEngine = new TokenEngine();
   statusBarManager = new StatusBarManager();
+  decorationsManager = new DecorationsManager();
 
   const scheduleThreeTierUpdate = (text: string): void => {
-    if (tokenEngine === undefined || statusBarManager === undefined) {
+    if (
+      tokenEngine === undefined ||
+      statusBarManager === undefined ||
+      decorationsManager === undefined
+    ) {
       return;
     }
 
@@ -45,13 +52,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
 
         try {
-          const tokenCount = await tokenEngine.calculateTokens(text, false);
+          const result = await tokenEngine.calculateTokens(text, false);
 
           if (updateSequence !== latestUpdateSequence) {
             return;
           }
 
-          statusBarManager.update(tokenCount, false);
+          statusBarManager.update(result.tokenCount, result.isReconciled);
         } catch (error: unknown) {
           const errorMessage =
             error instanceof Error ? error.message : "Unknown token calculation error.";
@@ -65,18 +72,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // Tier 3: Full reconcile pass for exact final count.
     reconcileUpdateDebounceHandle = setTimeout(() => {
       void (async () => {
-        if (tokenEngine === undefined || statusBarManager === undefined) {
+        if (
+          tokenEngine === undefined ||
+          statusBarManager === undefined ||
+          decorationsManager === undefined
+        ) {
           return;
         }
 
         try {
-          const tokenCount = await tokenEngine.calculateTokens(text, true);
+          const result = await tokenEngine.calculateTokens(text, true);
 
           if (updateSequence !== latestUpdateSequence) {
             return;
           }
 
-          statusBarManager.update(tokenCount, true);
+          statusBarManager.update(result.tokenCount, result.isReconciled);
+          decorationsManager.updateDecorations(
+            vscode.window.activeTextEditor,
+            result.topHeavyRanges,
+          );
         } catch (error: unknown) {
           const errorMessage =
             error instanceof Error ? error.message : "Unknown token calculation error.";
@@ -89,7 +104,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   const updateFromActiveEditor = (): void => {
-    if (statusBarManager === undefined) {
+    if (statusBarManager === undefined || decorationsManager === undefined) {
       return;
     }
 
@@ -98,9 +113,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       clearPendingUpdateHandles();
       latestUpdateSequence += 1;
       statusBarManager.update(0, true);
+      decorationsManager.updateDecorations(undefined, undefined);
       return;
     }
 
+    decorationsManager.updateDecorations(editor, undefined);
     scheduleThreeTierUpdate(editor.document.getText());
   };
 
@@ -109,6 +126,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       clearPendingUpdateHandles();
       statusBarManager?.dispose();
       statusBarManager = undefined;
+      decorationsManager?.dispose();
+      decorationsManager = undefined;
       tokenEngine?.dispose();
       tokenEngine = undefined;
     },
@@ -136,6 +155,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   context.subscriptions.push(statusBarManager);
+  context.subscriptions.push(decorationsManager);
 
   try {
     await tokenEngine.calculateTokens("", true);
@@ -150,9 +170,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
 
     clearPendingUpdateHandles();
-    statusBarManager.dispose();
+    statusBarManager?.dispose();
     statusBarManager = undefined;
-    tokenEngine.dispose();
+    decorationsManager?.dispose();
+    decorationsManager = undefined;
+    tokenEngine?.dispose();
     tokenEngine = undefined;
   }
 }
@@ -161,6 +183,8 @@ export function deactivate(): void {
   clearPendingUpdateHandles();
   statusBarManager?.dispose();
   statusBarManager = undefined;
+  decorationsManager?.dispose();
+  decorationsManager = undefined;
   tokenEngine?.dispose();
   tokenEngine = undefined;
 }
